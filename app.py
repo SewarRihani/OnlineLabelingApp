@@ -5,7 +5,6 @@ import glob
 import io
 import zipfile
 from pydub import AudioSegment
-from pydub.playback import play
 import tempfile
 
 # === CONFIG ===
