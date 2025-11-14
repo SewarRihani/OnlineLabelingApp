@@ -5,77 +5,53 @@ import glob
 
 # === CONFIG ===
 AUDIO_DIR = "data"
-OUTPUT_FOLDER = "labels"
 SUPPORTED_FORMATS = (".wav", ".mp3")
 
-# === SETUP ===
-os.makedirs(OUTPUT_FOLDER, exist_ok=True)
-
-# === Get Audio Files ===
+# === Get All Audio Files ===
 audio_files = sorted(glob.glob(f"{AUDIO_DIR}/**/*", recursive=True))
 audio_files = [f for f in audio_files if f.endswith(SUPPORTED_FORMATS)]
 
-# === SESSION STATE ===
+# === SESSION STATE INIT ===
 if 'index' not in st.session_state:
     st.session_state.index = 0
 if 'labels' not in st.session_state:
     st.session_state.labels = []
-if 'username' not in st.session_state:
-    st.session_state.username = ""
+if 'uploaded_files' not in st.session_state:
+    st.session_state.uploaded_files = []
 
 # === UI ===
 st.title("🎧 Online Labeling App")
 st.subheader("Label cat and dog sounds as Positive, Negative, or Unknown.")
-
-# === User Input for Name ===
-if not st.session_state.username:
-    name = st.text_input("Enter your name to start:", key="username_input")
-    if name:
-        st.session_state.username = name.strip()
-        st.rerun()
-    else:
-        st.stop()
-
-# === Upload Progress CSV (optional) ===
 st.markdown("---")
+
+# === Upload CSV (optional)
 uploaded_file = st.file_uploader("📂 Upload your previous label file to continue (optional):", type="csv")
-
-labeled_files = []
-
-if uploaded_file is not None:
+if uploaded_file and uploaded_file.name not in st.session_state.uploaded_files:
     df = pd.read_csv(uploaded_file)
-    labeled_files = df['file'].tolist()
     st.session_state.labels = df.to_dict('records')
-    st.session_state.index = 0  # reset position after filtering
-    st.success(f"✅ Progress file loaded: {len(labeled_files)} files already labeled.")
+    st.session_state.uploaded_files.append(uploaded_file.name)
+    st.session_state.index = 0
+    st.success(f"✅ Progress file loaded: {len(df)} files already labeled.")
     st.info("Continuing where you left off — previously labeled files will be skipped.")
 
-# === Load existing saved file if no upload ===
-user_file = os.path.join(OUTPUT_FOLDER, f"{st.session_state.username}.csv")
-if not st.session_state.labels and os.path.exists(user_file):
-    df = pd.read_csv(user_file)
-    labeled_files = df['file'].tolist()
-    st.session_state.labels = df.to_dict('records')
-
-# === Filter Remaining Files ===
+# === Filter labeled
+labeled_files = {entry['file'] for entry in st.session_state.labels}
 audio_files = [f for f in audio_files if os.path.basename(f) not in labeled_files]
 total_remaining = len(audio_files)
 
-# === End App if Done ===
+# === Done?
 if st.session_state.index >= total_remaining:
-    st.success("✅ All files labeled! Thank you.")
+    st.success("✅ All files labeled! Download your final CSV below.")
     final_df = pd.DataFrame(st.session_state.labels)
-    final_df.to_csv(user_file, index=False)
-
     st.download_button(
-        label="📁 Download progress CSV",
+        label="📁 Download final CSV",
         data=final_df.to_csv(index=False),
-        file_name=f"{st.session_state.username}_progress.csv",
+        file_name="labels_progress.csv",
         mime="text/csv"
     )
     st.stop()
 
-# === CURRENT FILE ===
+# === Current file
 file_path = audio_files[st.session_state.index]
 file_name = os.path.basename(file_path)
 species = "CAT" if "cat" in file_path.lower() else "DOG"
@@ -84,32 +60,40 @@ st.markdown(f"### {species.upper()} • {file_name}")
 st.markdown(f"**{st.session_state.index + 1} / {total_remaining} files**")
 st.progress(st.session_state.index / total_remaining)
 
-# === Audio Preview ===
 try:
     with open(file_path, 'rb') as f:
         st.audio(f.read())
 except Exception as e:
-    st.warning(f"Error playing audio: {e}")
+    st.warning(f"⚠️ Couldn't load audio: {e}")
 
-# === Save Function ===
-def save_and_next(label):
+# === Save Function
+def label_and_continue(label):
     st.session_state.labels.append({
         "file": file_name,
         "species": species,
         "label": label
     })
-    pd.DataFrame(st.session_state.labels).to_csv(user_file, index=False)
     st.session_state.index += 1
     st.rerun()
 
-# === LABELING BUTTONS ===
+# === Buttons
 col1, col2, col3 = st.columns(3)
 with col1:
     if st.button("😊 Positive"):
-        save_and_next("positive")
+        label_and_continue("positive")
 with col2:
     if st.button("😠 Negative"):
-        save_and_next("negative")
+        label_and_continue("negative")
 with col3:
     if st.button("❓ Unknown"):
-        save_and_next("unknown")
+        label_and_continue("unknown")
+
+# === Download progress at any time
+if st.session_state.labels:
+    st.markdown("---")
+    st.download_button(
+        label="💾 Download progress CSV",
+        data=pd.DataFrame(st.session_state.labels).to_csv(index=False),
+        file_name="labels_progress.csv",
+        mime="text/csv"
+    )
