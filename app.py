@@ -31,10 +31,9 @@ st.subheader("Label cat and dog sounds as Positive, Negative, or Unknown.")
 # === User Input for Name (resume or new) ===
 if not st.session_state.username:
     name = st.text_input("Enter your name to start:", key="username_input")
-
     if name:
         st.session_state.username = name.strip()
-        st.experimental_rerun()
+        st.rerun()
     else:
         st.warning("Please enter a valid name to continue.")
         st.stop()
