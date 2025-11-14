@@ -73,14 +73,14 @@ with col1:
     if st.button("😊 Positive"):
         st.session_state.labels.append({"file": file_name, "species": species, "label": "positive"})
         st.session_state.index += 1
-        st.experimental_rerun()
+        st.rerun()
 with col2:
     if st.button("😠 Negative"):
         st.session_state.labels.append({"file": file_name, "species": species, "label": "negative"})
         st.session_state.index += 1
-        st.experimental_rerun()
+        st.rerun()
 with col3:
     if st.button("❓ Unknown"):
         st.session_state.labels.append({"file": file_name, "species": species, "label": "unknown"})
         st.session_state.index += 1
-        st.experimental_rerun()
+        st.rerun()
