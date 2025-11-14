@@ -47,10 +47,7 @@ if uploaded_file is not None:
     labeled_files = df['file'].tolist()
     st.session_state.labels = df.to_dict('records')
     st.session_state.index = 0
-
-    # Filter files after loading progress
     audio_files = [f for f in audio_files if os.path.basename(f) not in labeled_files]
-    total_remaining = len(audio_files)
     st.rerun()
 
 # === Local fallback if no file uploaded
@@ -70,7 +67,7 @@ if st.session_state.index >= total_remaining:
     st.success("✅ All files labeled! Thank you.")
     final_df = pd.DataFrame(st.session_state.labels)
     final_df.to_csv(user_file, index=False)
-    st.download_button("📁 Download progress CSV", final_df.to_csv(index=False), file_name=f"{st.session_state.username}_labels.csv")
+    st.download_button("📥 Download your full labels", final_df.to_csv(index=False), file_name=f"{st.session_state.username}_labels.csv")
     st.stop()
 
 # === CURRENT FILE ===
@@ -89,16 +86,28 @@ try:
 except Exception as e:
     st.warning(f"Error playing audio: {e}")
 
-# === Save Function ===
+# === Save Progress Immediately
+def save_csv():
+    pd.DataFrame(st.session_state.labels).to_csv(user_file, index=False)
+
+# === Save & Next
 def save_and_next(label):
     st.session_state.labels.append({
         "file": file_name,
         "species": species,
         "label": label
     })
-    pd.DataFrame(st.session_state.labels).to_csv(user_file, index=False)
+    save_csv()
     st.session_state.index += 1
     st.rerun()
+
+# === Go Back
+def go_back():
+    if st.session_state.index > 0:
+        st.session_state.index -= 1
+        st.session_state.labels.pop()
+        save_csv()
+        st.rerun()
 
 # === LABELING BUTTONS ===
 col1, col2, col3 = st.columns(3)
@@ -111,3 +120,17 @@ with col2:
 with col3:
     if st.button("❓ Unknown"):
         save_and_next("unknown")
+
+# === GO BACK BUTTON ===
+if st.session_state.index > 0:
+    st.markdown("### ")
+    if st.button("🔙 Go Back (Fix Previous Label)"):
+        go_back()
+
+# === PROGRESS DOWNLOAD BUTTON (ALWAYS SHOW)
+if st.session_state.labels:
+    st.download_button(
+        "📥 Download progress CSV",
+        pd.DataFrame(st.session_state.labels).to_csv(index=False),
+        file_name=f"{st.session_state.username}_progress.csv"
+    )
