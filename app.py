@@ -37,22 +37,27 @@ if not st.session_state.username:
     else:
         st.stop()
 
-# === File uploader for previous CSV ===
+# === Resume from Uploaded CSV (Optional) ===
 st.markdown("---")
 uploaded_file = st.file_uploader("📂 Upload your previous label file to continue (optional):", type="csv")
 
-# === If CSV is uploaded, reset session and resume from that file
-if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
-    labeled_files = df['file'].tolist()
-    st.session_state.labels = df.to_dict('records')
-    st.session_state.index = 0
-    audio_files = [f for f in audio_files if os.path.basename(f) not in labeled_files]
-    st.rerun()
-
-# === Local fallback if no file uploaded
-user_file = os.path.join(OUTPUT_FOLDER, f"{st.session_state.username}.csv")
 labeled_files = []
+
+if uploaded_file is not None:
+    try:
+        df = pd.read_csv(uploaded_file)
+        labeled_files = df['file'].tolist()
+        st.session_state.labels = df.to_dict('records')
+        st.session_state.index = 0
+        st.success(f"✅ Progress file loaded! {len(labeled_files)} files already labeled.")
+        st.info("Continuing where you left off — previously labeled files will be skipped.")
+        st.rerun()
+    except Exception as e:
+        st.error(f"⚠️ Error reading uploaded file: {e}")
+        st.stop()
+
+# === Resume from Local File (Fallback) ===
+user_file = os.path.join(OUTPUT_FOLDER, f"{st.session_state.username}.csv")
 if not st.session_state.labels and os.path.exists(user_file):
     df = pd.read_csv(user_file)
     labeled_files = df['file'].tolist()
@@ -67,7 +72,13 @@ if st.session_state.index >= total_remaining:
     st.success("✅ All files labeled! Thank you.")
     final_df = pd.DataFrame(st.session_state.labels)
     final_df.to_csv(user_file, index=False)
-    st.download_button("📥 Download your full labels", final_df.to_csv(index=False), file_name=f"{st.session_state.username}_labels.csv")
+
+    st.markdown("---")
+    st.download_button(
+        "💾 Download progress CSV",
+        final_df.to_csv(index=False),
+        file_name=f"{st.session_state.username}_labels.csv"
+    )
     st.stop()
 
 # === CURRENT FILE ===
@@ -81,33 +92,21 @@ st.progress(st.session_state.index / total_remaining)
 
 # === Audio Preview ===
 try:
-    audio_bytes = open(file_path, 'rb').read()
-    st.audio(audio_bytes)
+    with open(file_path, 'rb') as f:
+        st.audio(f.read())
 except Exception as e:
     st.warning(f"Error playing audio: {e}")
 
-# === Save Progress Immediately
-def save_csv():
-    pd.DataFrame(st.session_state.labels).to_csv(user_file, index=False)
-
-# === Save & Next
+# === Save Function ===
 def save_and_next(label):
     st.session_state.labels.append({
         "file": file_name,
         "species": species,
         "label": label
     })
-    save_csv()
+    pd.DataFrame(st.session_state.labels).to_csv(user_file, index=False)
     st.session_state.index += 1
     st.rerun()
-
-# === Go Back
-def go_back():
-    if st.session_state.index > 0:
-        st.session_state.index -= 1
-        st.session_state.labels.pop()
-        save_csv()
-        st.rerun()
 
 # === LABELING BUTTONS ===
 col1, col2, col3 = st.columns(3)
@@ -120,17 +119,3 @@ with col2:
 with col3:
     if st.button("❓ Unknown"):
         save_and_next("unknown")
-
-# === GO BACK BUTTON ===
-if st.session_state.index > 0:
-    st.markdown("### ")
-    if st.button("🔙 Go Back (Fix Previous Label)"):
-        go_back()
-
-# === PROGRESS DOWNLOAD BUTTON (ALWAYS SHOW)
-if st.session_state.labels:
-    st.download_button(
-        "📥 Download progress CSV",
-        pd.DataFrame(st.session_state.labels).to_csv(index=False),
-        file_name=f"{st.session_state.username}_progress.csv"
-    )
