@@ -25,7 +25,7 @@ if 'username' not in st.session_state:
     st.session_state.username = ""
 
 # === UI ===
-st.title("🎿 Online Labeling App")
+st.title("🎧 Online Labeling App")
 st.subheader("Label cat and dog sounds as Positive, Negative, or Unknown.")
 
 # === User Input for Name ===
@@ -45,13 +45,25 @@ if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
     labeled_files = df['file'].tolist()
     st.session_state.labels = df.to_dict('records')
+    st.session_state.index = len(st.session_state.labels)
 
-# === Resume from Existing Local File (Fallback) ===
+# === Resume from Local File (Fallback) ===
 user_file = os.path.join(OUTPUT_FOLDER, f"{st.session_state.username}.csv")
 if not st.session_state.labels and os.path.exists(user_file):
     df = pd.read_csv(user_file)
     labeled_files = df['file'].tolist()
     st.session_state.labels = df.to_dict('records')
+    st.session_state.index = len(st.session_state.labels)
+
+# === Download Progress (always visible) ===
+if st.session_state.labels:
+    df = pd.DataFrame(st.session_state.labels)
+    st.download_button(
+        "💾 Download progress CSV",
+        data=df.to_csv(index=False).encode("utf-8"),
+        file_name=f"{st.session_state.username}_progress.csv",
+        mime="text/csv"
+    )
 
 # === Filter Remaining Files ===
 audio_files = [f for f in audio_files if os.path.basename(f) not in labeled_files]
