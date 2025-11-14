@@ -25,26 +25,33 @@ if 'username' not in st.session_state:
     st.session_state.username = ""
 
 # === UI ===
-st.title("🎧 Online Labeling App")
+st.title("🎿 Online Labeling App")
 st.subheader("Label cat and dog sounds as Positive, Negative, or Unknown.")
 
-# === User Input for Name (resume or new) ===
+# === User Input for Name ===
 if not st.session_state.username:
     name = st.text_input("Enter your name to start:", key="username_input")
     if name:
         st.session_state.username = name.strip()
         st.rerun()
     else:
-        st.warning("Please enter a valid name to continue.")
         st.stop()
 
-# === Resume from Existing File ===
-user_file = os.path.join(OUTPUT_FOLDER, f"{st.session_state.username}.csv")
+# === Resume from Uploaded CSV (Optional) ===
+st.markdown("---")
+uploaded_file = st.file_uploader("📂 Upload your previous label file to continue (optional):", type="csv")
 labeled_files = []
-if os.path.exists(user_file):
-    labeled_df = pd.read_csv(user_file)
-    labeled_files = labeled_df['file'].tolist()
-    st.session_state.labels = labeled_df.to_dict('records')
+if uploaded_file is not None:
+    df = pd.read_csv(uploaded_file)
+    labeled_files = df['file'].tolist()
+    st.session_state.labels = df.to_dict('records')
+
+# === Resume from Existing Local File (Fallback) ===
+user_file = os.path.join(OUTPUT_FOLDER, f"{st.session_state.username}.csv")
+if not st.session_state.labels and os.path.exists(user_file):
+    df = pd.read_csv(user_file)
+    labeled_files = df['file'].tolist()
+    st.session_state.labels = df.to_dict('records')
 
 # === Filter Remaining Files ===
 audio_files = [f for f in audio_files if os.path.basename(f) not in labeled_files]
@@ -53,8 +60,9 @@ total_remaining = len(audio_files)
 # === End App if Done ===
 if st.session_state.index >= total_remaining:
     st.success("✅ All files labeled! Thank you.")
-    df = pd.DataFrame(st.session_state.labels)
-    df.to_csv(user_file, index=False)
+    final_df = pd.DataFrame(st.session_state.labels)
+    final_df.to_csv(user_file, index=False)
+    st.download_button("📁 Download your labels", final_df.to_csv(index=False), file_name=f"{st.session_state.username}_labels.csv")
     st.stop()
 
 # === CURRENT FILE ===
@@ -73,17 +81,14 @@ try:
 except Exception as e:
     st.warning(f"Error playing audio: {e}")
 
-# === Save function ===
+# === Save Function ===
 def save_and_next(label):
     st.session_state.labels.append({
         "file": file_name,
         "species": species,
         "label": label
     })
-    # Save immediately to CSV
-    df = pd.DataFrame(st.session_state.labels)
-    df.to_csv(user_file, index=False)
-
+    pd.DataFrame(st.session_state.labels).to_csv(user_file, index=False)
     st.session_state.index += 1
     st.rerun()
 
