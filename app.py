@@ -2,9 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import glob
-import io
 import zipfile
-from pydub import AudioSegment
 import tempfile
 
 # === CONFIG ===
