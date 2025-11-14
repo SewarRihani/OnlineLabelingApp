@@ -28,10 +28,16 @@ if 'username' not in st.session_state:
 st.title("🎧 Online Labeling App")
 st.subheader("Label cat and dog sounds as Positive, Negative, or Unknown.")
 
-# === User Input for Name (only once) ===
+# === User Input for Name (resume or new) ===
 if not st.session_state.username:
-    st.session_state.username = st.text_input("Enter your name to start:")
-    st.stop()
+    name = st.text_input("Enter your name to start:", key="username_input")
+
+    if name:
+        st.session_state.username = name.strip()
+        st.experimental_rerun()
+    else:
+        st.warning("Please enter a valid name to continue.")
+        st.stop()
 
 # === Resume from Existing File ===
 user_file = os.path.join(OUTPUT_FOLDER, f"{st.session_state.username}.csv")
@@ -59,6 +65,7 @@ species = "CAT" if "cat" in file_path.lower() else "DOG"
 
 st.markdown(f"### {species.upper()} • {file_name}")
 st.markdown(f"**{st.session_state.index+1} / {total_remaining} files**")
+st.progress(st.session_state.index / total_remaining)
 
 # === Audio Preview ===
 try:
@@ -67,20 +74,28 @@ try:
 except Exception as e:
     st.warning(f"Error playing audio: {e}")
 
+# === Save function ===
+def save_and_next(label):
+    st.session_state.labels.append({
+        "file": file_name,
+        "species": species,
+        "label": label
+    })
+    # Save immediately to CSV
+    df = pd.DataFrame(st.session_state.labels)
+    df.to_csv(user_file, index=False)
+
+    st.session_state.index += 1
+    st.rerun()
+
 # === LABELING BUTTONS ===
 col1, col2, col3 = st.columns(3)
 with col1:
     if st.button("😊 Positive"):
-        st.session_state.labels.append({"file": file_name, "species": species, "label": "positive"})
-        st.session_state.index += 1
-        st.rerun()
+        save_and_next("positive")
 with col2:
     if st.button("😠 Negative"):
-        st.session_state.labels.append({"file": file_name, "species": species, "label": "negative"})
-        st.session_state.index += 1
-        st.rerun()
+        save_and_next("negative")
 with col3:
     if st.button("❓ Unknown"):
-        st.session_state.labels.append({"file": file_name, "species": species, "label": "unknown"})
-        st.session_state.index += 1
-        st.rerun()
+        save_and_next("unknown")
