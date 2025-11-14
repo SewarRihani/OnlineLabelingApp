@@ -25,7 +25,7 @@ if 'username' not in st.session_state:
     st.session_state.username = ""
 
 # === UI ===
-st.title("🎧 Online Labeling App")
+st.title("🎿 Online Labeling App")
 st.subheader("Label cat and dog sounds as Positive, Negative, or Unknown.")
 
 # === User Input for Name ===
@@ -37,33 +37,29 @@ if not st.session_state.username:
     else:
         st.stop()
 
-# === Resume from Uploaded CSV (Optional) ===
+# === File uploader for previous CSV ===
 st.markdown("---")
 uploaded_file = st.file_uploader("📂 Upload your previous label file to continue (optional):", type="csv")
-labeled_files = []
+
+# === If CSV is uploaded, reset session and resume from that file
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
     labeled_files = df['file'].tolist()
     st.session_state.labels = df.to_dict('records')
-    st.session_state.index = len(st.session_state.labels)
+    st.session_state.index = 0
 
-# === Resume from Local File (Fallback) ===
+    # Filter files after loading progress
+    audio_files = [f for f in audio_files if os.path.basename(f) not in labeled_files]
+    total_remaining = len(audio_files)
+    st.rerun()
+
+# === Local fallback if no file uploaded
 user_file = os.path.join(OUTPUT_FOLDER, f"{st.session_state.username}.csv")
+labeled_files = []
 if not st.session_state.labels and os.path.exists(user_file):
     df = pd.read_csv(user_file)
     labeled_files = df['file'].tolist()
     st.session_state.labels = df.to_dict('records')
-    st.session_state.index = len(st.session_state.labels)
-
-# === Download Progress (always visible) ===
-if st.session_state.labels:
-    df = pd.DataFrame(st.session_state.labels)
-    st.download_button(
-        "💾 Download progress CSV",
-        data=df.to_csv(index=False).encode("utf-8"),
-        file_name=f"{st.session_state.username}_progress.csv",
-        mime="text/csv"
-    )
 
 # === Filter Remaining Files ===
 audio_files = [f for f in audio_files if os.path.basename(f) not in labeled_files]
@@ -74,7 +70,7 @@ if st.session_state.index >= total_remaining:
     st.success("✅ All files labeled! Thank you.")
     final_df = pd.DataFrame(st.session_state.labels)
     final_df.to_csv(user_file, index=False)
-    st.download_button("📁 Download your labels", final_df.to_csv(index=False), file_name=f"{st.session_state.username}_labels.csv")
+    st.download_button("📁 Download progress CSV", final_df.to_csv(index=False), file_name=f"{st.session_state.username}_labels.csv")
     st.stop()
 
 # === CURRENT FILE ===
