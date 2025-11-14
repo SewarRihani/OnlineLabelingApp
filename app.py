@@ -2,22 +2,14 @@ import streamlit as st
 import pandas as pd
 import os
 import glob
-import zipfile
-import tempfile
 
 # === CONFIG ===
-ZIP_PATH = "data/DvC.zip"
-AUDIO_DIR = "audio"
+AUDIO_DIR = "data"
 OUTPUT_FOLDER = "labels"
 SUPPORTED_FORMATS = (".wav", ".mp3")
 
 # === SETUP ===
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
-
-# === Extract ZIP if needed ===
-if not os.path.exists(AUDIO_DIR):
-    with zipfile.ZipFile(ZIP_PATH, 'r') as zip_ref:
-        zip_ref.extractall(AUDIO_DIR)
 
 # === Get Audio Files ===
 audio_files = sorted(glob.glob(f"{AUDIO_DIR}/**/*", recursive=True))
